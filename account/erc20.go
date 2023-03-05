@@ -1,23 +1,39 @@
 package account
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"math/big"
-	"strings"
+	"net/http"
 
+	"golang.org/x/crypto/sha3"
+
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/mehdi124/crypton/connection"
 )
 
 type Erc20Account struct {
+	Name       string
 	privateKey *ecdsa.PrivateKey
 	publicKey  *ecdsa.PublicKey
+}
+
+type ethHandlerResult struct {
+	Result string `json:"result"`
+	Error  struct {
+		Code    int64  `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 func Import(hexPrivateKey string) (*Erc20Account, error) {
@@ -39,7 +55,7 @@ func Import(hexPrivateKey string) (*Erc20Account, error) {
 	}, nil
 }
 
-func Create() (*Erc20Account, error) {
+func Create(name, password string) (*Erc20Account, error) {
 
 	privateKey, err := crypto.GenerateKey()
 	if err != nil {
@@ -53,14 +69,10 @@ func Create() (*Erc20Account, error) {
 	}
 
 	return &Erc20Account{
+		Name:       name,
 		privateKey: privateKey,
 		publicKey:  publicKey,
 	}, nil
-}
-
-type request struct {
-	To   string `json:"to"`
-	Data string `json:"data"`
 }
 
 func (account *Erc20Account) Export() string {
@@ -76,7 +88,7 @@ func (account *Erc20Account) Address() string {
 
 func (account *Erc20Account) ETHBalance() (*big.Float, error) {
 
-	client, err := connection.Connect("localhost:4545")
+	client, err := connection.Connect("mainnet")
 	if err != nil {
 		return new(big.Float), err
 	}
@@ -100,30 +112,40 @@ func convertEthValue(balanceAt *big.Int) *big.Float {
 
 func (account *Erc20Account) TokenBalance(contractAddr string) (*big.Float, error) {
 
-	client, err := connection.ConnectHttp("mainnet")
+	//address := account.Address()
+	address := "0xc09cdd3874d2dabc80696ad21d2bf7441fda7832"
+
+	data := crypto.Keccak256Hash([]byte("balanceOf(address)")).String()[0:10] + "000000000000000000000000" + address[2:]
+	postBody, _ := json.Marshal(map[string]interface{}{
+		"id":      1,
+		"jsonrpc": "2.0",
+		"method":  "eth_call",
+		"params": []interface{}{
+			map[string]string{
+				"to":   contractAddr,
+				"data": data,
+			},
+			"latest",
+		},
+	})
+
+	requestBody := bytes.NewBuffer(postBody)
+	resp, err := http.Post(connection.GetInfuraUrl("mainnet"), "application/json", requestBody)
 	if err != nil {
-		return new(big.Float), err
+		return nil, err
 	}
 
-	defer client.Close()
+	ethResult := new(big.Int)
 
-	address := account.Address()
-	data := "0x70a08231" + fmt.Sprintf("%064s", address[2:])
-
-	req := request{contractAddr, data}
-	var resp string
-	if err := client.Call(&resp, "eth_call", req, "latest"); err != nil {
-		return new(big.Float), err
+	if err := json.NewDecoder(resp.Body).Decode(&ethResult); err != nil {
+		return nil, err
 	}
 
-	balance, err := hexutil.DecodeBig("0x" + strings.TrimLeft(resp[2:], "0")) // %064s means that the string is padded with 0 to 64 bytes
-	if err != nil {
-		log.Fatal(err)
-	}
+	//ethResult.SetString(ethResult.Result[2:], 16)
+	fmt.Println(ethResult, "ss", resp.Body)
+	return new(big.Float), nil
 
-	fmt.Println(balance)
-
-	return convertTokenValue(balance, 6), nil
+	//return convertTokenValue(balance, 6), nil
 }
 
 func convertTokenValue(balance *big.Int, decimals int) *big.Float {
@@ -132,3 +154,119 @@ func convertTokenValue(balance *big.Int, decimals int) *big.Float {
 	value := new(big.Float).Quo(fbal, big.NewFloat(math.Pow10(int(decimals))))
 	return value
 }
+
+func (account *Erc20Account) ETHTransfer(to string, amount *big.Int) (string, error) {
+
+	client, err := connection.Connect("rinkeby")
+	if err != nil {
+		return "", err
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*account.publicKey)
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return "", err
+	}
+
+	value := big.NewInt(1000000000000000000) // in wei (1 eth)
+	gasLimit := uint64(21000)                // in units
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	toAddress := common.HexToAddress(to)
+	var data []byte
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), account.privateKey)
+	if err != nil {
+		return "", err
+	}
+
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
+	return signedTx.Hash().Hex(), nil
+}
+
+func (account *Erc20Account) TokenTransfer(contract string, to string, amount *big.Int) (string, error) {
+
+	client, err := connection.Connect("rinkeby")
+	if err != nil {
+		return "", err
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*account.publicKey)
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return "", err
+	}
+
+	value := big.NewInt(0) // in wei (0 eth)
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	toAddress := common.HexToAddress(to)
+	tokenAddress := common.HexToAddress(contract)
+
+	transferFnSignature := []byte("transfer(address,uint256)")
+
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(transferFnSignature)
+	methodID := hash.Sum(nil)[:4]
+	fmt.Println(hexutil.Encode(methodID)) // 0xa9059cbb
+
+	paddedAddress := common.LeftPadBytes(toAddress.Bytes(), 32)
+	fmt.Println(hexutil.Encode(paddedAddress)) // 0x0000000000000000000000004592d8f8d7b001e72cb26a73e4fa1806a51ac79d
+	amount = new(big.Int)
+	amount.SetString("1000000000000000000000", 10) // 1000 tokens
+	paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
+	fmt.Println(hexutil.Encode(paddedAmount)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
+
+	var data []byte
+	data = append(data, methodID...)
+	data = append(data, paddedAddress...)
+	data = append(data, paddedAmount...)
+
+	gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+		To:   &toAddress,
+		Data: data,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(gasLimit) // 23256
+
+	tx := types.NewTransaction(nonce, tokenAddress, value, gasLimit, gasPrice, data)
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), account.privateKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
+	return signedTx.Hash().Hex(), nil
+}
+
+

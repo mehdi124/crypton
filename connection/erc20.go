@@ -2,7 +2,6 @@ package connection
 
 import (
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var APIKey = "e926ac6aae5543f099859ad3a9293081"
@@ -19,9 +18,11 @@ func GetInfuraUrl(network string) string {
 	return URL
 }
 
-func ConnectHttp(network string) (*rpc.Client, error) {
+func ConnectHttp(network string) (*ethclient.Client, error) {
 
-	client, err := rpc.DialHTTP(URL)
+	GetInfuraUrl(network)
+	URL = "http://localhost:7545"
+	client, err := ethclient.Dial(URL)
 	if err != nil {
 		return nil, err
 	}
@@ -29,9 +30,11 @@ func ConnectHttp(network string) (*rpc.Client, error) {
 	return client, nil
 }
 
-func Connect(url string) (*ethclient.Client, error) {
+func Connect(network string) (*ethclient.Client, error) {
 
-	client, err := ethclient.Dial(url)
+	GetInfuraUrl(network)
+	URL = "http://localhost:7545"
+	client, err := ethclient.Dial(URL)
 	if err != nil {
 		return nil, err
 	}
