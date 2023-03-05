@@ -1,13 +1,35 @@
 package connection
 
 import (
-	token "github.com/crypton/contracts"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func Connect(url) (ethclient.Client, error) {
+var APIKey = "e926ac6aae5543f099859ad3a9293081"
+var URL string
+
+const (
+	Mainnet string = "mainnet"
+	Goerli         = "goerli"
+	Sepolia        = "sepolia"
+)
+
+func GetInfuraUrl(network string) string {
+	URL = "https://" + network + ".infura.io/v3/" + APIKey
+	return URL
+}
+
+func ConnectHttp(network string) (*rpc.Client, error) {
+
+	client, err := rpc.DialHTTP(URL)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func Connect(url string) (*ethclient.Client, error) {
 
 	client, err := ethclient.Dial(url)
 	if err != nil {
@@ -23,23 +45,7 @@ type TokenContract struct {
 	Decimals int
 }
 
-func GetTokenInstance(tokenContract string) (*token.Token, error) {
-
-	client, err := connection.Connect("localhost:4545")
-	if err != nil {
-		return nil, err
-	}
-
-	tokenAddress := common.HexToAddress(tokenContract)
-	instance, err := token.NewToken(tokenAddress, client)
-	if err != nil {
-		return nil, err
-	}
-
-	return instance, nil
-}
-
-func SetTokenInfo(tokenContract string) (*TokenContract, error) {
+/*func SetTokenInfo(tokenContract string) (*TokenContract, error) {
 
 	instance, err := GetTokenInstance(tokenContract)
 	if err != nil {
@@ -67,4 +73,4 @@ func SetTokenInfo(tokenContract string) (*TokenContract, error) {
 		Decimals: decimals,
 	}, nil
 
-}
+}*/

@@ -1,16 +1,17 @@
 package account
 
 import (
-	"fmt"
 	"testing"
+
+	"log"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func ImportAndCreateAccountTest(t *testing.T) {
+func TestImportAndCreateAccount(t *testing.T) {
 
-	erc20Account, err := account.Create()
+	erc20Account, err := Create()
 	assert.Nil(t, err)
-	fmt.Println("private key", erc20Account.Export())
+	log.Println("private key", erc20Account.Export())
 
 }
