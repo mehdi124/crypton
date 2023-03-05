@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type PublicInfo struct {
@@ -21,7 +20,7 @@ func NewPublicInfo(name, address string) *PublicInfo {
 	}
 }
 
-func (d *Driver) WritePublicInfo(collection, resource string, pb PublicInfo) error {
+func (d *Driver) WritePublicInfo(collection, resource string, pb *PublicInfo) error {
 
 	if collection == "" {
 		return fmt.Errorf("missing collection - no place to save records")
@@ -112,7 +111,7 @@ func (d *Driver) DeletePublicInfo(collection, resource string) error {
 	return nil
 }
 
-func (d *Driver) getOrCreateMutext(collection string) *sync.Mutex {
+/*func (d *Driver) getOrCreateMutext(collection string) *sync.Mutex {
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -137,4 +136,4 @@ func stat(path string) (fi os.FileInfo, err error) {
 
 	return fi, err
 
-}
+}*/

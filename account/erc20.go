@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/mehdi124/crypton/connection"
+	"github.com/mehdi124/crypton/storage"
 )
 
 type Erc20Account struct {
@@ -68,11 +68,18 @@ func Create(name, password string) (*Erc20Account, error) {
 		return nil, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 
-	return &Erc20Account{
+	erc20Account := &Erc20Account{
 		Name:       name,
 		privateKey: privateKey,
 		publicKey:  publicKey,
-	}, nil
+	}
+
+	err = storage.Store(erc20Account.Name, erc20Account.Address(), erc20Account.Export(), password)
+	if err != nil {
+		return nil, err
+	}
+
+	return erc20Account, nil
 }
 
 func (account *Erc20Account) Export() string {
@@ -268,5 +275,3 @@ func (account *Erc20Account) TokenTransfer(contract string, to string, amount *b
 	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
 	return signedTx.Hash().Hex(), nil
 }
-
-

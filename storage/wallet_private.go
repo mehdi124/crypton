@@ -5,10 +5,11 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,7 +25,7 @@ func NewPrivateInfo(privateKey string) *PrivateInfo {
 	}
 }
 
-func (d *Driver) Write(collection, resource, password string, pk *PrivateInfo) error {
+func (d *Driver) WritePrivateInfo(collection, resource, password string, pk *PrivateInfo) error {
 
 	if collection == "" {
 		return fmt.Errorf("missing collection - no place to save records")
@@ -46,7 +47,12 @@ func (d *Driver) Write(collection, resource, password string, pk *PrivateInfo) e
 		return err
 	}
 
-	b := encrypt([]byte(password), pk.Bytes())
+	ps := hashPassword(password)
+
+	b, err := encrypt(ps, pk.Bytes())
+	if err != nil {
+		return err
+	}
 
 	if err := ioutil.WriteFile(tempPath, b, 0644); err != nil {
 		return nil
@@ -55,35 +61,36 @@ func (d *Driver) Write(collection, resource, password string, pk *PrivateInfo) e
 	return os.Rename(tempPath, fnlPath)
 }
 
-func (d *Driver) Read(collection, resource, password string) (*PrivateInfo, error) {
+func (d *Driver) ReadPrivateInfo(collection, resource, password string) error {
 
 	if collection == "" {
-		return nil, fmt.Errorf("missing collection - unable to read")
+		return fmt.Errorf("missing collection - unable to read")
 	}
 
 	if resource == "" {
-		return nil, fmt.Errorf("missing resource - unable to read records (no name)")
+		return fmt.Errorf("missing resource - unable to read records (no name)")
 	}
 
 	record := filepath.Join(d.dir, collection, resource)
 
 	if _, err := stat(record); err != nil {
-		return nil, err
+		return err
 	}
 
 	b, err := ioutil.ReadFile(record + ".txt")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	log.Println("read file", b)
 	//pkInfo := PrivateInfo{}
 	//pkInfo = hex.EncodeToString(b)
 
-	return json.Unmarshal(b, &v)
-
+	//return json.Unmarshal(b, &pkInfo)
+	return nil
 }
 
-func (d *Driver) Delete(collection, resource string) error {
+func (d *Driver) DeletePrivateInfo(collection, resource string) error {
 
 	path := filepath.Join(collection, resource)
 
@@ -183,4 +190,10 @@ func (pk *PrivateInfo) Bytes() []byte {
 	enc := gob.NewEncoder(buf)
 	enc.Encode(pk)
 	return buf.Bytes()
+}
+
+func hashPassword(password string) []byte {
+	ps := sha256.Sum256([]byte(password))
+	log.Println(ps)
+	return ps[:32]
 }

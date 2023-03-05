@@ -3,9 +3,6 @@ package storage
 import (
 	"os"
 
-	"github.com/mehdi124/crypton/account"
-
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -14,6 +11,7 @@ import (
 )
 
 const Version = "1.0.0"
+const Dir = "./wallets/"
 
 type (
 	Logger interface {
@@ -65,49 +63,26 @@ func New(dir string, options *Options) (*Driver, error) {
 
 }
 
-func main() {
+func Store(name, address, privateKey, password string) error {
 
-	publicDir := "./storage/wallets/public/"
-	privateDir := "./storage/wallets/private/"
-	password := "test"
-
-	dbPub, err := New(publicDir, nil)
+	//TODO check name and address exists or not ???
+	db, err := New(Dir, nil)
 	if err != nil {
 		fmt.Println("Error", err)
 	}
 
-	dbPk, err := New(privateDir, nil)
+	pubInfo := NewPublicInfo(name, address)
+	privInfo := NewPrivateInfo(privateKey)
+
+	err = db.WritePublicInfo("public", name, pubInfo)
 	if err != nil {
-		fmt.Println("error 2 ", err)
+		return err
 	}
 
-	pubInfo := NewPublicInfo()
-
-	dbPub.Write("users", account.Erc20Account.Name, value)
-
-	records, err := db.ReadAll("wallets")
+	err = db.WritePrivateInfo("private", name, password, privInfo)
 	if err != nil {
-		fmt.Println("Error read all", err)
+		return err
 	}
 
-	fmt.Println(records)
-
-	allusers := []account.Erc20Account{}
-	for _, f := range records {
-
-		employeeFund := User{}
-		if err := json.Unmarshal([]byte(f), &employeeFund); err != nil {
-			fmt.Println("unmarshal error", err)
-		}
-
-		allusers = append(allusers, employeeFund)
-
-	}
-
-	fmt.Println(allusers)
-
-	//if err := db.Delete("users", ""); err != nil {
-	//fmt.Println("delete error", err)
-	//}
-
+	return nil
 }
