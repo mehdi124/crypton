@@ -5,11 +5,12 @@ import (
 
 	"log"
 
+	"github.com/mehdi124/crypton/storage"
 	"github.com/stretchr/testify/assert"
 )
 
 func createAccount(t *testing.T) *Erc20Account {
-	erc20Account, err := Create("testaccount", "test")
+	erc20Account, err := Create("testaccount2", "test")
 	assert.Nil(t, err)
 	log.Println("private key", erc20Account.Export())
 	return erc20Account
@@ -22,6 +23,10 @@ func TestImportAndCreateAccount(t *testing.T) {
 	//assert.Equal(t, erc20Account.Export(), importErc20Account.Export())
 	//assert.Equal(t, erc20Account.Address(), importErc20Account.Address())
 	log.Println(erc20Account.Export(), erc20Account.Address())
+
+	pubInfos, err := storage.GetWalletsList()
+	assert.Nil(t, err)
+	log.Println(pubInfos)
 }
 
 /*func TestBalance(t *testing.T) {

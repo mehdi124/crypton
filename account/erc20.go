@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"net/http"
+	"strings"
 
 	"golang.org/x/crypto/sha3"
 
@@ -56,6 +57,8 @@ func Import(hexPrivateKey string) (*Erc20Account, error) {
 }
 
 func Create(name, password string) (*Erc20Account, error) {
+
+	name = handleName(name)
 
 	privateKey, err := crypto.GenerateKey()
 	if err != nil {
@@ -274,4 +277,11 @@ func (account *Erc20Account) TokenTransfer(contract string, to string, amount *b
 
 	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
 	return signedTx.Hash().Hex(), nil
+}
+
+func handleName(name string) string {
+
+	name = strings.ReplaceAll(name, " ", "")
+	name = strings.TrimSpace(name)
+	return name
 }

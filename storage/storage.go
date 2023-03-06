@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"os"
 
 	"fmt"
@@ -65,10 +66,14 @@ func New(dir string, options *Options) (*Driver, error) {
 
 func Store(name, address, privateKey, password string) error {
 
-	//TODO check name and address exists or not ???
+	err := WalletExist(name, address)
+	if err != nil {
+		return err
+	}
+
 	db, err := New(Dir, nil)
 	if err != nil {
-		fmt.Println("Error", err)
+		return err
 	}
 
 	pubInfo := NewPublicInfo(name, address)
@@ -85,4 +90,66 @@ func Store(name, address, privateKey, password string) error {
 	}
 
 	return nil
+}
+
+func WalletExist(name, address string) error {
+
+	db, err := New(Dir, nil)
+	if err != nil {
+		return err
+	}
+
+	records, err := db.ReadAllPublicInfo("public")
+	if err != nil {
+		return err
+	}
+
+	wallets := []PublicInfo{}
+
+	for _, record := range records {
+
+		pubInfo := PublicInfo{}
+		if err := json.Unmarshal([]byte(record), &pubInfo); err != nil {
+			fmt.Errorf("unmarshal error", err)
+		}
+
+		if pubInfo.Name == name {
+			return fmt.Errorf("%s wallet name already exist", name)
+		}
+
+		if pubInfo.Address == address {
+			return fmt.Errorf("%s address already exist", address)
+		}
+	}
+
+	return nil
+
+}
+
+func GetWalletsList() ([]PublicInfo, error) {
+
+	db, err := New(Dir, nil)
+	if err != nil {
+		fmt.Println("error", err)
+	}
+
+	records, err := db.ReadAllPublicInfo("public")
+	if err != nil {
+		fmt.Println("er", err)
+	}
+
+	wallets := []PublicInfo{}
+
+	for _, record := range records {
+
+		pubInfo := PublicInfo{}
+		if err := json.Unmarshal([]byte(record), &pubInfo); err != nil {
+			fmt.Errorf("unmarshal error", err)
+		}
+
+		wallets = append(wallets, pubInfo)
+	}
+
+	return wallets, nil
+
 }
