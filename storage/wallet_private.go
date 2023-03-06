@@ -16,12 +16,12 @@ import (
 )
 
 type PrivateInfo struct {
-	privateKey string
+	PrivateKey string
 }
 
 func NewPrivateInfo(privateKey string) *PrivateInfo {
 	return &PrivateInfo{
-		privateKey: privateKey,
+		PrivateKey: privateKey,
 	}
 }
 
@@ -49,7 +49,9 @@ func (d *Driver) WritePrivateInfo(collection, resource, password string, pk *Pri
 
 	ps := hashPassword(password)
 
-	b, err := encrypt(ps, pk.Bytes())
+	pkBytes := pk.Bytes()
+
+	b, err := encrypt(ps, pkBytes)
 	if err != nil {
 		return err
 	}
@@ -61,33 +63,45 @@ func (d *Driver) WritePrivateInfo(collection, resource, password string, pk *Pri
 	return os.Rename(tempPath, fnlPath)
 }
 
-func (d *Driver) ReadPrivateInfo(collection, resource, password string) error {
+func (d *Driver) ReadPrivateInfo(collection, resource, password string) (*PrivateInfo, error) {
 
 	if collection == "" {
-		return fmt.Errorf("missing collection - unable to read")
+		return nil, fmt.Errorf("missing collection - unable to read")
 	}
 
 	if resource == "" {
-		return fmt.Errorf("missing resource - unable to read records (no name)")
+		return nil, fmt.Errorf("missing resource - unable to read records (no name)")
 	}
 
 	record := filepath.Join(d.dir, collection, resource)
 
-	if _, err := stat(record); err != nil {
-		return err
+	if _, err := privateStat(record); err != nil {
+		return nil, err
 	}
 
 	b, err := ioutil.ReadFile(record + ".txt")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Println("read file", b)
-	//pkInfo := PrivateInfo{}
-	//pkInfo = hex.EncodeToString(b)
+	ps := hashPassword(password)
+
+	decrypted, err := decrypt(ps, b)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(decrypted)
+	dec := gob.NewDecoder(buf)
+
+	pk := PrivateInfo{}
+
+	if err := dec.Decode(&pk); err != nil {
+		log.Fatal(err, pk)
+	}
 
 	//return json.Unmarshal(b, &pkInfo)
-	return nil
+	return &pk, nil
 }
 
 func (d *Driver) DeletePrivateInfo(collection, resource string) error {
@@ -100,7 +114,7 @@ func (d *Driver) DeletePrivateInfo(collection, resource string) error {
 
 	dir := filepath.Join(d.dir, path)
 
-	switch fi, err := stat(dir); {
+	switch fi, err := privateStat(dir); {
 
 	case fi == nil, err != nil:
 		return fmt.Errorf("unable to find file or directory name %v\n", path)
@@ -135,6 +149,18 @@ func stat(path string) (fi os.FileInfo, err error) {
 	if fi, err = os.Stat(path); os.IsNotExist(err) {
 
 		fi, err = os.Stat(path + ".json")
+
+	}
+
+	return fi, err
+
+}
+
+func privateStat(path string) (fi os.FileInfo, err error) {
+
+	if fi, err = os.Stat(path); os.IsNotExist(err) {
+
+		fi, err = os.Stat(path + ".txt")
 
 	}
 

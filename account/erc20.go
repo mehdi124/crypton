@@ -77,7 +77,7 @@ func Create(name, password string) (*Erc20Account, error) {
 		publicKey:  publicKey,
 	}
 
-	err = storage.Store(erc20Account.Name, erc20Account.Address(), erc20Account.Export(), password)
+	err = storage.Store(erc20Account.Name, erc20Account.Address(), erc20Account.PrivateKeyToHex(), password)
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +85,19 @@ func Create(name, password string) (*Erc20Account, error) {
 	return erc20Account, nil
 }
 
-func (account *Erc20Account) Export() string {
-
+func (account *Erc20Account) PrivateKeyToHex() string {
 	privateKeyBytes := crypto.FromECDSA(account.privateKey)
 	return hexutil.Encode(privateKeyBytes)[2:]
+}
 
+func (account *Erc20Account) Export(name, password string) (string, error) {
+
+	pkv, err := storage.GetPrivateInfo(name, password)
+	if err != nil {
+		return "", err
+	}
+
+	return pkv, nil
 }
 
 func (account *Erc20Account) Address() string {

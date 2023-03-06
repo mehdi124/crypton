@@ -104,8 +104,6 @@ func WalletExist(name, address string) error {
 		return err
 	}
 
-	wallets := []PublicInfo{}
-
 	for _, record := range records {
 
 		pubInfo := PublicInfo{}
@@ -152,4 +150,18 @@ func GetWalletsList() ([]PublicInfo, error) {
 
 	return wallets, nil
 
+}
+
+func GetPrivateInfo(name, password string) (string, error) {
+
+	db, err := New(Dir, nil)
+	if err != nil {
+		return "", err
+	}
+
+	privateInfo, err := db.ReadPrivateInfo("private", name, password)
+	if err != nil {
+		return "", err
+	}
+	return privateInfo.PrivateKey, nil
 }
