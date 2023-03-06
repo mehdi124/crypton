@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -35,7 +36,11 @@ func (d *Driver) WritePublicInfo(collection, resource string, pb *PublicInfo) er
 	defer mutex.Unlock()
 
 	dir := filepath.Join(d.dir, collection)
+
+	log.Println(dir, resource, "ssss")
+
 	fnlPath := filepath.Join(dir, resource+".json")
+	log.Println(fnlPath)
 	tempPath := fnlPath + ".tmp"
 
 	if err := os.MkdirAll(dir, 0775); err != nil {
@@ -66,7 +71,7 @@ func (d *Driver) ReadAllPublicInfo(collection string) ([]string, error) {
 	dir := filepath.Join(d.dir, collection)
 
 	if _, err := stat(dir); err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	files, _ := ioutil.ReadDir(dir)

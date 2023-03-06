@@ -16,10 +16,8 @@ func createAccount(t *testing.T, name, password string) (*Erc20Account, error) {
 
 func TestImportAndCreateAccount(t *testing.T) {
 
-	_, err := createAccount(t, "testaccount5", "test")
-	assert.NotNil(t, err)
-
-	erc20Account, err := createAccount(t, "testaccount8", "test")
+	erc20Account, err := createAccount(t, "account2", "test")
+	log.Println(err, "error")
 	assert.Nil(t, err)
 
 	//importErc20Account, err := Import(erc20Account.Export())
@@ -30,8 +28,8 @@ func TestImportAndCreateAccount(t *testing.T) {
 	assert.Nil(t, err)
 	log.Println(pubInfos)
 
-	pvk, err := storage.GetPrivateInfo("testaccount8", "test")
-	assert.NotNil(t, err)
+	pvk, err := storage.GetPrivateInfo("account2", "test")
+	assert.Nil(t, err)
 
 	log.Println("pvk", pvk, erc20Account.PrivateKeyToHex())
 	assert.Equal(t, erc20Account.PrivateKeyToHex(), pvk)

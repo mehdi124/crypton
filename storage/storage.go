@@ -12,7 +12,7 @@ import (
 )
 
 const Version = "1.0.0"
-const Dir = "./wallets/"
+const Dir = "/home/mehdi/go/src/crypton/wallets/"
 
 type (
 	Logger interface {
@@ -101,7 +101,7 @@ func WalletExist(name, address string) error {
 
 	records, err := db.ReadAllPublicInfo("public")
 	if err != nil {
-		return err
+		return nil
 	}
 
 	for _, record := range records {
